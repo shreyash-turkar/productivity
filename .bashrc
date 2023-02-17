@@ -9,7 +9,6 @@ alias sd_dev_box="$SDMAIN/lab/sd_dev_box/sd_dev_box"
 
 # Exports
 export PATH="$PATH:/usr/local/bin/"
-export PATH="$PATH:/usr/local/bin/code"
 export PATH="$PATH:/somewhere/arcanist/bin/"
 export PATH="$PATH:/Users/Shreyash.Turkar/.yarn/bin/"
 
@@ -17,6 +16,19 @@ export PATH="$PATH:/Users/Shreyash.Turkar/.yarn/bin/"
 alias bodega=$SDMAIN/lab/bin/bodega
 alias orders='bodega list orders'
 alias consume='bodega consume order'
+
+# Bodega Orders
+order_hyperv() {
+	bodega place order 'item_1:vm_machine(location=COLO,image_source=hyperv_2016_vm_template)' -t max
+}
+
+order_cdm() {
+	bodega place order 'cdm_cluster()' -t max
+}
+
+order_polaris() {
+	bodega place order 'cookbook_item(recipe=polaris-deployment)' -t max
+}
 
 # Bodega Functions
 details() {
