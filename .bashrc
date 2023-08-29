@@ -77,7 +77,7 @@ details() {
 provision_polaris ()
 {
     account='temp01' && echo "Running sp-account-create -a $account -d $@" && sp-account-create -a $account -d $@ && echo "Running: sp-user-create -a $account -u admin -p admin -d $@" && sp-user-create -a $account -u shreyash.turkar@rubrik.com -p admin -d $@ && echo "sp-account-ui -a $account -d $@" && sp-account-ui -a $account -d $@ && echo "sp-account-tag add -d $@ -t HypervEnabled HyperVHierarchyEnabled HyperVInventoryViewEnabled -a $account";
-    sp-account-tag add -d $@ -t FilesetInventory HypervEnabled HyperVHierarchyEnabled HyperVInventoryViewEnabled GlobalSLAForCDMSnappablesEnabled RBACForGlobalSLA NasFeatureEnablement NasInventoryEnabled NasInventoryGAEnabled -a $account
+    sp-account-tag add -d $@ -t FilesetInventory HypervEnabled HyperVHierarchyEnabled HyperVInventoryViewEnabled GlobalSLAForCDMSnappablesEnabled RBACForGlobalSLA NasFeatureEnablement NasInventoryEnabled NasInventoryGAEnabled NutanixEnabled TprEnabled -a $account
 }
 
 extend_order ()
