@@ -112,3 +112,12 @@ alias vnc_kill="vncserver -kill :1"
 
 # Pycharm
 export pycharm="/home/ubuntu/Documents/Apps/pycharm-community-2022.3.2/bin/pycharm.sh"
+
+
+gls ()
+{
+    git show --name-only | cat;
+    echo -e '\n\n---------------CHANGED FILES---------------------------\n';
+    git status -s;
+    echo -e '\n'
+}
