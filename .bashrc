@@ -69,6 +69,11 @@ order_windows_host ()
     bodega place order 'vm:vm_machine(location=colo,image_source=legacy-windowshost-2016, network=native)' -ctx {"Windows Host$(date '+%d %B %A')"} -t max --no_wait
 }
 
+order_active_directory ()
+{
+    bodega place order 'cookbook_item(recipe=active-directory, domain_template=windows2019, dc_count=3, location=COLO)' -ctx {"Active Directory $(date '+%d %B %A')"} -t max --no_wait
+}
+
 # Bodega Functions
 details() {
 	consume $1 | grep -e 'ipv4' -e 'item_type'
