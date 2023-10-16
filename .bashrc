@@ -4,6 +4,7 @@ eval "$(pyenv init --path)"
 # Folders
 export WORKSPACE_PATH='~/workspace'
 export SDMAIN="$WORKSPACE_PATH/sdmain"
+export JAVA_HOME="/usr/bin/java"
 
 alias sd_dev_box="$SDMAIN/lab/sd_dev_box/sd_dev_box"
 
@@ -81,8 +82,35 @@ details() {
 
 provision_polaris ()
 {
-    account='temp01' && echo "Running sp-account-create -a $account -d $@" && sp-account-create -a $account -d $@ && echo "Running: sp-user-create -a $account -u admin -p admin -d $@" && sp-user-create -a $account -u shreyash.turkar@rubrik.com -p admin -d $@ && echo "sp-account-ui -a $account -d $@" && sp-account-ui -a $account -d $@ && echo "sp-account-tag add -d $@ -t HypervEnabled HyperVHierarchyEnabled HyperVInventoryViewEnabled -a $account";
-    sp-account-tag add -d $@ -t FilesetInventory HypervEnabled HyperVHierarchyEnabled HyperVInventoryViewEnabled GlobalSLAForCDMSnappablesEnabled RBACForGlobalSLA NasFeatureEnablement NasInventoryEnabled NasInventoryGAEnabled NutanixEnabled TprEnabled -a $account
+    account='temp01'
+    &&
+    echo "Running sp-account-create -a $account -d $@"
+    &&
+    sp-account-create -a $account -d $@
+    &&
+    echo "Running: sp-user-create -a $account -u admin -p b8bkPrhVVxyY7Jg -d $@"
+    &&
+    sp-user-create -a $account -u shreyash.turkar@rubrik.com -p admin -d $@
+    &&
+    echo "sp-account-ui -a $account -d $@"
+    &&
+    sp-account-ui -a $account -d $@
+    &&
+    sp-account-tag add -d $@ -t ActiveDirectoryEnabled \
+                                RDPCustomer \
+                                UiActiveDirectoryEnabled \
+                                FilesetInventory \
+                                HypervEnabled \
+                                HyperVHierarchyEnabled \
+                                HyperVInventoryViewEnabled \
+                                GlobalSLAForCDMSnappablesEnabled \
+                                RBACForGlobalSLA \
+                                NasFeatureEnablement \
+                                NasInventoryEnabled \
+                                NasInventoryGAEnabled \
+                                NutanixEnabled \
+                                TprEnabled \
+                    -a $account
 }
 
 extend_order ()
@@ -92,7 +120,7 @@ extend_order ()
 
 extend_all_orders ()
 {
-	bodega extend order $(orders | awk '{print $1}' | tail -n +3) -t 2d
+	bodega extend order $(orders | awk '{print $1}' | tail -n +3) -t max
 }
 
 alias activate_po="source ./polaris/.buildenv/bin/activate"
@@ -107,6 +135,10 @@ register_cdm_to_polaris () {
 # Cluster Alias
 alias cluster="$SDMAIN/deployment/cluster.sh"
 
+cssh () {
+    ssh -i ./deployment/ssh_keys/ubuntu.pem ubuntu@$@
+}
+
 # VNC Alias
 alias vnc_2560x1440="vncserver -geometry 2540x1440"
 alias vnc_2304x1296="vncserver -geometry 2304x1296"
@@ -119,6 +151,10 @@ alias vnc_kill="vncserver -kill :1"
 export pycharm="/home/ubuntu/Documents/Apps/pycharm-community-2022.3.2/bin/pycharm.sh"
 
 
+ffconvert() {
+  ffmpeg -i $1 -c copy -movflags +faststart $2.mp4
+}
+
 gls ()
 {
     git show --name-only | cat;
@@ -126,3 +162,5 @@ gls ()
     git status -s;
     echo -e '\n'
 }
+
+alias rklog=$SDMAIN/tools/logging/rklog
