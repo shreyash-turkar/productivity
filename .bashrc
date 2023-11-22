@@ -7,6 +7,7 @@ export SDMAIN="$WORKSPACE_PATH/sdmain"
 export JAVA_HOME="/usr/bin/java"
 
 alias sd_dev_box="$SDMAIN/lab/sd_dev_box/sd_dev_box"
+export EDITOR=vim
 
 # Exports
 export PATH="$PATH:/usr/local/bin/"
@@ -72,7 +73,7 @@ order_windows_host ()
 
 order_active_directory ()
 {
-    bodega place order 'cookbook_item(recipe=active-directory, domain_template=windows2019, dc_count=3, location=COLO)' -ctx {"Active Directory $(date '+%d %B %A')"} -t max --no_wait
+    bodega place order 'cookbook_item(recipe=active-directory, domain_template=windows2019, dc_count=1, override_domain_name=true, location=COLO)'  -ctx  {"Active Directory $(date '+%d %B %A')"} -t max --no_wait
 }
 
 # Bodega Functions
@@ -82,27 +83,27 @@ details() {
 
 provision_polaris ()
 {
-    account='temp01'
+    account='temp01' \
     &&
-    echo "Running sp-account-create -a $account -d $@"
+    echo "Running sp-account-create -a $account -d $@" \
     &&
-    sp-account-create -a $account -d $@
+    sp-account-create -a $account -d $@ \
     &&
-    echo "Running: sp-user-create -a $account -u admin -p b8bkPrhVVxyY7Jg -d $@"
+    echo "Running: sp-user-create -a $account -u admin -p b8bkPrhVVxyY7Jg -d $@" \
     &&
-    sp-user-create -a $account -u shreyash.turkar@rubrik.com -p admin -d $@
+    sp-user-create -a $account -u shreyash.turkar@rubrik.com -p admin -d $@ \
     &&
-    echo "sp-account-ui -a $account -d $@"
+    echo "sp-account-ui -a $account -d $@" \
     &&
-    sp-account-ui -a $account -d $@
+    sp-account-ui -a $account -d $@ \
     &&
     sp-account-tag add -d $@ -t ActiveDirectoryEnabled \
                                 RDPCustomer \
                                 UiActiveDirectoryEnabled \
                                 FilesetInventory \
-                                HypervEnabled \
-                                HyperVHierarchyEnabled \
-                                HyperVInventoryViewEnabled \
+                                # HypervEnabled \
+                                # HyperVHierarchyEnabled \
+                                # HyperVInventoryViewEnabled \
                                 GlobalSLAForCDMSnappablesEnabled \
                                 RBACForGlobalSLA \
                                 NasFeatureEnablement \
@@ -163,4 +164,4 @@ gls ()
     echo -e '\n'
 }
 
-alias rklog=$SDMAIN/tools/logging/rklog
+export rklog=$SDMAIN/tools/logging/rklog.py
