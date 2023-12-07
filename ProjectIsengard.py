@@ -81,7 +81,11 @@ SYNC_WORKSPACE_CMD = [
 PULL_WORKSPACE = [
     'python3',
     f'{WORKSPACE}/tools/remote_executor/remote_executor.py',
-    '--pull_updates'
+    '--pull_updates',
+    '--sync_dir_from_remote',
+    'src/java/sd/target',
+    '--exclude_from_sync',
+    'sd-0.1.jar'
 ]
 
 REMOTE_GEN_DEPS_CMD = "./tools/bzl_tools/build/gen_intellij_deps.sh"
@@ -471,7 +475,7 @@ class IsengardShell(Cmd, Cache):
         """Generate intellij deps."""
         maybe_sync_workspace(self.sync)
         logging.info('Generate Intellij Deps')
-        DevMachine.run_command(REMOTE_GEN_DEPS_CMD, stdin_str=b'y\ny\n')
+        DevMachine.run_command(REMOTE_GEN_DEPS_CMD)
         pull_workspace()
 
     def do_make_brikmock3_sdk_internal(self, _args):
