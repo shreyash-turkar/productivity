@@ -76,6 +76,12 @@ order_active_directory ()
     bodega place order 'cookbook_item(recipe=active-directory, domain_template=windows2019, dc_count=1, override_domain_name=true, location=COLO)'  -ctx  {"Active Directory $(date '+%d %B %A')"} -t max --no_wait
 }
 
+order_active_directory_3_hosts ()
+{
+    bodega place order 'cookbook_item(recipe=active-directory, domain_template=windows2019, dc_count=3, override_domain_name=true, location=COLO)'  -ctx  {"Active Directory $(date '+%d %B %A')"} -t max --no_wait
+}
+
+
 # Bodega Functions
 details() {
 	consume $1 | grep -e 'ipv4' -e 'item_type'
@@ -83,7 +89,7 @@ details() {
 
 provision_polaris ()
 {
-    account='temp01' \
+    account='temp02' \
     &&
     echo "Running sp-account-create -a $account -d $@" \
     &&
