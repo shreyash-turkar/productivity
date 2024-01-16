@@ -58,8 +58,8 @@ class CommandRunException(Exception):
 
 # Order SIDs
 DEV = 'dev-131'
-POLARIS_SID = 'h8f4bo-j2azzcu'
-CDM_SID = 'gp2zre-jc6kz4i'
+POLARIS_SID = '8rihh5-uje3vk2'
+CDM_SID = 'a3bec4-848zneq'
 BODEGA_POLARIS = (
     '{\\\\\\"_item_1\\\\\\": {\\\\\\"spark_instance\\\\\\": {'
     f'\\\\\\"context\\\\\\": \\\\\\"{DEV}\\\\\\", '
@@ -79,7 +79,7 @@ REPO = 'sdmain'
 WORKSPACE = f'/Users/Shreyash.Turkar/workspace/{REPO}'
 REMOTE_WORKSPACE = f'/home/ubuntu/workspace/{REPO}'
 
-REMOTE_MACHINE = 'ubvm'
+REMOTE_MACHINE = 'ubvm2'
 
 REMOTE_LOG_DIR = f'{REMOTE_WORKSPACE}/logs'
 LOCAL_LOG_DIR = f'{WORKSPACE}/logs'
@@ -117,44 +117,31 @@ BUILD_BRIKMOCK_IMAGE_CMD = './src/scripts/brikmock/gen_docker.sh'
 
 DOCKER_SYS_PRUNE_CMD = 'docker system prune'
 
-GET_BRIKMOCK_DOCKER_LATEST_IMAGE_CMD = [
-    'ssh',
-    '-t',
-    'ubvm',
-    'docker images -a | sort -k4 -r | grep '
-    '\'brikmock\'  | awk \'{print $2}\'  | head -1'
-]
+GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD = (
+    'docker images -a | '
+    'grep \'brikmock\' | '
+    'awk \'{print $3}\' | '
+    'head -1'
+)
 
-GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD = [
-    'ssh',
-    '-t',
-    'ubvm',
-    'docker images -a | grep \'brikmock\' |'
-    ' awk \'{print $3}\'  | head -1'
-]
+DELETE_BRIKMOCK_DOCKER_IMAGES = (
+    'docker images -a | '
+    'grep \'brikmock\' | '
+    'awk \'{print $3}\' | '
+    'xargs -n1 docker rmi'
+)
 
-DELETE_BRIKMOCK_DOCKER_IMAGES = [
-    'ssh',
-    '-t',
-    'ubvm',
-    'docker images -a | grep \'brikmock\' |'
-    ' awk \'{print $3}\'  | xargs -n1 docker rmi'
-]
-
-STOP_BRIKMOCK_CONTAINER_CMD = [
-    'ssh',
-    '-t',
-    'ubvm',
-    'docker ps | grep brikmock | awk \'{print $1}\'  | xargs docker stop && '
+STOP_BRIKMOCK_CONTAINER_CMD = (
+    'docker ps | '
+    'grep brikmock | '
+    'awk \'{print $1}\' | '
+    'xargs docker stop && '
     'docker rm brikmock'
-]
+)
 
-GET_BRIKMOCK_CONTAINER_CMD = [
-    'ssh',
-    '-t',
-    'ubvm',
+GET_BRIKMOCK_CONTAINER_CMD = (
     'docker ps | grep brikmock'
-]
+)
 
 
 class LocalMachine:
@@ -177,7 +164,7 @@ class LocalMachine:
         stdout = process.stdout
         stderr = process.stderr
         logging.info(f'Ran: {command}\nStdout: {stdout}\n')
-        if stderr:
+        if stderr and stderr.find(b'Connection to') == -1:
             logging.error(f'Ran: {command}\nStderr {stderr}\n')
             raise CommandRunException(command, stdout, stderr)
         if capture_output:
@@ -192,7 +179,7 @@ class DevMachine:
         return [
             'ssh',
             '-t',
-            'ubvm',
+            f'{REMOTE_MACHINE}',
             f'COMPOSE_PROJECT_NAME=home-ubuntu-workspace-{REPO}-master '
             f'{REMOTE_WORKSPACE}/lab/sd_dev_box/sd_dev_box '
             f'--sdmain_repo '
@@ -200,7 +187,7 @@ class DevMachine:
             f'--exec "source /etc/profile.d/sd_exports.sh && {command}"']
 
     @staticmethod
-    def run_command(
+    def run_command_on_sd_dev_box(
         command: str,
         stdin_str: bytes = None,
         cwd: str = WORKSPACE,
@@ -210,10 +197,25 @@ class DevMachine:
         return LocalMachine.run_command(command_for_remote, stdin_str, cwd,
                                         capture_output)
 
+    @staticmethod
+    def __create_command(command: str):
+        return [
+            'ssh',
+            '-t',
+            f'{REMOTE_MACHINE}',
+            f'{command}'
+        ]
 
-def run_and_return(command: str):
-    process = subprocess.run(command, capture_output=True)
-    return str(process.stdout.decode())
+    @staticmethod
+    def run_command(
+        command: str,
+        stdin_str: bytes = None,
+        cwd: str = WORKSPACE,
+        capture_output: bool = False
+    ):
+        command_for_remote = DevMachine.__create_command(command)
+        return LocalMachine.run_command(command_for_remote, stdin_str, cwd,
+                                        capture_output)
 
 
 class TestRunner:
@@ -237,8 +239,8 @@ class TestRunner:
         if cp == 'polaris':
             bodega_sids.extend([POLARIS_SID])
 
-        if real:
-            bodega_sids.extend([CDM_SID])
+        # if real:
+            # bodega_sids.extend([CDM_SID])
 
         if bodega_sids:
             bodega_sid_str = ','.join(bodega_sids)
@@ -276,12 +278,12 @@ class TestRunner:
     def run_brikmock_test(target: str, test: str, cp: str,
                           brikmock_image: str = None):
         test_cmd = TestRunner.get_cmd_run_test(target, test, brikmock_image, cp)
-        return DevMachine.run_command(test_cmd)
+        return DevMachine.run_command_on_sd_dev_box(test_cmd)
 
     @staticmethod
     def run_test(target: str, test: str):
         test_cmd = TestRunner.get_cmd_run_test(target, test, real=True)
-        return DevMachine.run_command(test_cmd)
+        return DevMachine.run_command_on_sd_dev_box(test_cmd)
 
 
 def maybe_sync_logs(log_sync):
@@ -513,7 +515,7 @@ class IsengardShell(Cmd, Cache):
         """Delete all brikmock images"""
         self.is_not_used()
         logging.info('Deleting all brikmock images')
-        LocalMachine.run_command(DELETE_BRIKMOCK_DOCKER_IMAGES)
+        DevMachine.run_command(DELETE_BRIKMOCK_DOCKER_IMAGES)
 
     def do_run_brikmock_test(self, args):
         """Test run"""
@@ -522,7 +524,7 @@ class IsengardShell(Cmd, Cache):
         if args:
             brikmock_image = args
         else:
-            brikmock_image = LocalMachine.run_command(
+            brikmock_image = DevMachine.run_command(
                 GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[
                              :-2]
 
@@ -543,12 +545,11 @@ class IsengardShell(Cmd, Cache):
         if args:
             brikmock_image = args
         else:
-            brikmock_image = LocalMachine.run_command(
+            brikmock_image = DevMachine.run_command(
                 GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[
                              :-2]
 
-        command = TestRunner.get_cmd_run_test(self.target, self.test, self.cp,
-                                              brikmock_image)
+        command = TestRunner.get_cmd_run_test(self.target, self.test, brikmock_image, self.cp)
         logging.info(f'Shreyash {command}')
 
     def do_run_test(self, _args):
@@ -575,14 +576,14 @@ class IsengardShell(Cmd, Cache):
         """Generate intellij deps."""
         maybe_sync_workspace(self.sync)
         logging.info('Generate Intellij Deps')
-        DevMachine.run_command(REMOTE_GEN_DEPS_CMD)
+        DevMachine.run_command_on_sd_dev_box(REMOTE_GEN_DEPS_CMD)
         pull_workspace()
 
     def do_make_brikmock3_sdk_internal(self, _args):
         """
         """
         maybe_sync_workspace(self.sync)
-        DevMachine.run_command(
+        DevMachine.run_command_on_sd_dev_box(
             'cd '
             'polaris/src/rubrik/sdk_internal/brikmock3'
             ' && sudo make')
@@ -592,18 +593,18 @@ class IsengardShell(Cmd, Cache):
         """Build custom brikmock docker."""
         maybe_sync_workspace(self.sync)
         logging.info('Building custom brikmock image.')
-        DevMachine.run_command(BUILD_BRIKMOCK_IMAGE_CMD)
+        DevMachine.run_command_on_sd_dev_box(BUILD_BRIKMOCK_IMAGE_CMD)
 
     def do_start_brikmock(self, _args):
         """"""
         logging.info('Starting brikmock container on latest build')
-        image_id = LocalMachine.run_command(
+        image_id = DevMachine.run_command(
             GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[:-2]
         logging.info(f'Brikmock image id: {image_id}')
         command = [
             'ssh',
             '-t',
-            'ubvm',
+            f'{REMOTE_MACHINE}',
             f'docker run -p 443:443 -p 9999:9999 --name brikmock -d {image_id}'
         ]
         LocalMachine.run_command(command)
@@ -613,7 +614,7 @@ class IsengardShell(Cmd, Cache):
         """Stop all brikmock containers"""
         self.is_not_used()
         logging.info('Stopping docker container')
-        LocalMachine.run_command(STOP_BRIKMOCK_CONTAINER_CMD)
+        DevMachine.run_command(STOP_BRIKMOCK_CONTAINER_CMD)
 
     def do_get_brikmock(self, _args):
         """
@@ -621,7 +622,7 @@ class IsengardShell(Cmd, Cache):
         """
         self.is_not_used()
         logging.info('Getting docker container')
-        stdout = LocalMachine.run_command(GET_BRIKMOCK_CONTAINER_CMD,
+        stdout = DevMachine.run_command(GET_BRIKMOCK_CONTAINER_CMD,
                                           capture_output=True)
 
         try:
@@ -645,8 +646,8 @@ class IsengardShell(Cmd, Cache):
         prune."""
         self.is_not_used()
         logging.info('Running docker system prune inside dev vm.')
-        stdout = DevMachine.run_command(DOCKER_SYS_PRUNE_CMD,
-                                        capture_output=True)
+        stdout = DevMachine.run_command_on_sd_dev_box(
+            DOCKER_SYS_PRUNE_CMD, capture_output=True)
 
     def do_exit(self, _):
         """Exit"""
@@ -658,14 +659,14 @@ class IsengardShell(Cmd, Cache):
         """Dummy command"""
         self.is_not_used()
         logging.info('Invoked dummy command')
-        brikmock_image = LocalMachine.run_command(
+        brikmock_image = DevMachine.run_command(
             GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[:-2]
         print('Hello: %s' % brikmock_image)
 
     def do_ssh_ubvm(self, _):
         """SSH to UBVM"""
         self.is_not_used()
-        LocalMachine.run_command(['ssh', 'ubvm'])
+        LocalMachine.run_command(['ssh', f'{REMOTE_MACHINE}'])
 
     def do_set_brikmock_id(self, _):
         """Set brikmock id to run test with"""
