@@ -91,13 +91,13 @@ LOG_SYNC_CMD = [
     f'{LOCAL_LOG_DIR}/..']
 
 SYNC_WORKSPACE_CMD = [
-    f'/Users/Shreyash.Turkar/workspace/{REPO}/polaris/.buildenv/bin/python',
+    f'{WORKSPACE}/polaris/.buildenv/bin/python',
     f'{WORKSPACE}/tools/remote_executor/remote_executor.py',
     '--push_changes'
 ]
 
 PULL_WORKSPACE = [
-    f'/Users/Shreyash.Turkar/workspace/{REPO}/polaris/.buildenv/bin/python',
+    f'{WORKSPACE}/polaris/.buildenv/bin/python',
     f'{WORKSPACE}/tools/remote_executor/remote_executor.py',
     '--pull_updates',
     '--sync_dir_from_remote',
