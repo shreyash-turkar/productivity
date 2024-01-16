@@ -56,24 +56,6 @@ class CommandRunException(Exception):
         self.stderr = str(stderr.decode())
 
 
-# Order SIDs
-DEV = 'dev-131'
-POLARIS_SID = '8rihh5-uje3vk2'
-CDM_SID = 'a3bec4-848zneq'
-BODEGA_POLARIS = (
-    '{\\\\\\"_item_1\\\\\\": {\\\\\\"spark_instance\\\\\\": {'
-    f'\\\\\\"context\\\\\\": \\\\\\"{DEV}\\\\\\", '
-    '\\\\\\"account\\\\\\": \\\\\\"bodega\\\\\\",'
-    f'\\\\\\"dns\\\\\\": \\\\\\"bodega.{DEV}.my.rubrik-lab.com'
-    '\\\\\\",'
-    '\\\\\\"username\\\\\\": '
-    '\\\\\\"bodega-test-user@rubrik.com\\\\\\",'
-    '\\\\\\"password\\\\\\": \\\\\\"B0dega!@34\\\\\\", '
-    '\\\\\\"role\\\\\\": '
-    '\\\\\\"00000000-0000-0000-0000-000000000000\\\\\\"}, '
-    '\\\\\\"item_type\\\\\\":'
-    '\\\\\\"polaris_gcp\\\\\\"}}'
-)
 
 REPO = 'sdmain'
 WORKSPACE = f'/Users/Shreyash.Turkar/workspace/{REPO}'
@@ -221,12 +203,31 @@ class DevMachine:
 class TestRunner:
 
     @staticmethod
+    def get_bodega_fulfilled_items(dev: str):
+        return (
+            '{\\\\\\"_item_1\\\\\\": {\\\\\\"spark_instance\\\\\\": {'
+            f'\\\\\\"context\\\\\\": \\\\\\"{dev}\\\\\\", '
+            '\\\\\\"account\\\\\\": \\\\\\"bodega\\\\\\",'
+            f'\\\\\\"dns\\\\\\": \\\\\\"bodega.{dev}.my.rubrik-lab.com'
+            '\\\\\\",'
+            '\\\\\\"username\\\\\\": '
+            '\\\\\\"bodega-test-user@rubrik.com\\\\\\",'
+            '\\\\\\"password\\\\\\": \\\\\\"B0dega!@34\\\\\\", '
+            '\\\\\\"role\\\\\\": '
+            '\\\\\\"00000000-0000-0000-0000-000000000000\\\\\\"}, '
+            '\\\\\\"item_type\\\\\\":'
+            '\\\\\\"polaris_gcp\\\\\\"}}'
+        )
+
+    @staticmethod
     def get_cmd_run_test(
         target: str,
         test: str,
+        polaris_sid: str,
+        dev: str = '',
         brikmock_image: str = "",
         cp: str = 'polaris',
-        real=False
+        real=False,
     ):
 
         command = [
@@ -237,7 +238,7 @@ class TestRunner:
 
         bodega_sids = []
         if cp == 'polaris':
-            bodega_sids.extend([POLARIS_SID])
+            bodega_sids.extend([polaris_sid])
 
         # if real:
             # bodega_sids.extend([CDM_SID])
@@ -251,8 +252,10 @@ class TestRunner:
             ]
 
         if cp == 'polaris':
+            get_bodega_fulfilled_items = \
+                TestRunner.get_bodega_fulfilled_items(dev)
             command += [
-                f'--bodega_fulfilled_items \'{BODEGA_POLARIS}\''
+                f'--bodega_fulfilled_items \'{get_bodega_fulfilled_items}\''
             ]
 
         command += [
@@ -321,6 +324,9 @@ class Config:
         self.cp = ''
         self.sync = True
         self.log_sync = True
+        self.dev = ''
+        self.remote_machine = ''
+        self.polaris_sid = ''
 
 
 class Cache:
@@ -378,6 +384,18 @@ class IsengardShell(Cmd, Cache):
     @property
     def log_sync(self):
         return self.config.log_sync
+
+    @property
+    def dev(self):
+        return self.config.dev
+
+    @property
+    def remote_machine(self):
+        return self.config.remote_machine
+
+    @property
+    def polaris_sid(self):
+        return self.config.polaris_sid
 
     def __init__(self, cache_file):
         self.last_modified = get_last_modified_time()
