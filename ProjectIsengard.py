@@ -56,21 +56,12 @@ class CommandRunException(Exception):
         self.stderr = str(stderr.decode())
 
 
-
 REPO = 'sdmain'
 WORKSPACE = f'/Users/Shreyash.Turkar/workspace/{REPO}'
 REMOTE_WORKSPACE = f'/home/ubuntu/workspace/{REPO}'
 
-REMOTE_MACHINE = 'ubvm2'
-
 REMOTE_LOG_DIR = f'{REMOTE_WORKSPACE}/logs'
 LOCAL_LOG_DIR = f'{WORKSPACE}/logs'
-
-LOG_SYNC_CMD = [
-    'rsync',
-    '-ra',
-    f'{REMOTE_MACHINE}:{REMOTE_LOG_DIR}',
-    f'{LOCAL_LOG_DIR}/..']
 
 SYNC_WORKSPACE_CMD = [
     f'{WORKSPACE}/polaris/.buildenv/bin/python',
@@ -157,11 +148,11 @@ class LocalMachine:
 class DevMachine:
 
     @staticmethod
-    def __get_cmd_for_sd_dev(command):
+    def __get_cmd_for_sd_dev(command: str, remote_machine: str):
         return [
             'ssh',
             '-t',
-            f'{REMOTE_MACHINE}',
+            f'{remote_machine}',
             f'COMPOSE_PROJECT_NAME=home-ubuntu-workspace-{REPO}-master '
             f'{REMOTE_WORKSPACE}/lab/sd_dev_box/sd_dev_box '
             f'--sdmain_repo '
@@ -170,32 +161,36 @@ class DevMachine:
 
     @staticmethod
     def run_command_on_sd_dev_box(
+        remote_machine: str,
         command: str,
         stdin_str: bytes = None,
         cwd: str = WORKSPACE,
         capture_output: bool = False
     ):
-        command_for_remote = DevMachine.__get_cmd_for_sd_dev(command)
+        command_for_remote = DevMachine.__get_cmd_for_sd_dev(
+            command, remote_machine)
         return LocalMachine.run_command(command_for_remote, stdin_str, cwd,
                                         capture_output)
 
     @staticmethod
-    def __create_command(command: str):
+    def __create_command(command: str, remote_machine: str):
         return [
             'ssh',
             '-t',
-            f'{REMOTE_MACHINE}',
+            f'{remote_machine}',
             f'{command}'
         ]
 
     @staticmethod
     def run_command(
+        remote_machine: str,
         command: str,
         stdin_str: bytes = None,
         cwd: str = WORKSPACE,
         capture_output: bool = False
     ):
-        command_for_remote = DevMachine.__create_command(command)
+        command_for_remote = DevMachine.__create_command(
+            command, remote_machine)
         return LocalMachine.run_command(command_for_remote, stdin_str, cwd,
                                         capture_output)
 
@@ -225,7 +220,7 @@ class TestRunner:
         test: str,
         polaris_sid: str,
         dev: str = '',
-        brikmock_image: str = "",
+        brikmock_image: str = '',
         cp: str = 'polaris',
         real=False,
     ):
@@ -260,7 +255,9 @@ class TestRunner:
 
         command += [
             f'-- --cp {cp}',
-            '--use_service_account_client'
+            '--use_service_account_client',
+            # '--reuse-session',
+            '--skip-cleanup-session'
         ]
 
         if not real:
@@ -278,23 +275,62 @@ class TestRunner:
         return ' '.join(command)
 
     @staticmethod
-    def run_brikmock_test(target: str, test: str, cp: str,
-                          brikmock_image: str = None):
-        test_cmd = TestRunner.get_cmd_run_test(target, test, brikmock_image, cp)
-        return DevMachine.run_command_on_sd_dev_box(test_cmd)
+    def run_brikmock_test(
+        remote_machine: str,
+        polaris_sid: str,
+        dev: str,
+        target: str,
+        test: str,
+        cp: str,
+        brikmock_image: str = None
+    ):
+
+        test_cmd = TestRunner.get_cmd_run_test(
+            target=target,
+            test=test,
+            polaris_sid=polaris_sid,
+            dev=dev,
+            brikmock_image=brikmock_image,
+            cp=cp,
+            real=False
+        )
+        return DevMachine.run_command_on_sd_dev_box(
+            remote_machine=remote_machine,
+            command=test_cmd
+        )
 
     @staticmethod
-    def run_test(target: str, test: str):
-        test_cmd = TestRunner.get_cmd_run_test(target, test, real=True)
-        return DevMachine.run_command_on_sd_dev_box(test_cmd)
+    def run_test(
+        remote_machine: str,
+        polaris_sid: str,
+        dev: str, target: str,
+        test: str
+    ):
+        test_cmd = TestRunner.get_cmd_run_test(
+            target=target,
+            test=test,
+            polaris_sid=polaris_sid,
+            dev=dev,
+            real=True
+        )
+        return DevMachine.run_command_on_sd_dev_box(
+            remote_machine=remote_machine,
+            command=test_cmd
+        )
 
 
-def maybe_sync_logs(log_sync):
+def maybe_sync_logs(log_sync, remote_machine):
     if not log_sync:
         logging.warning('Skipping log sync')
         return
     logging.info('Syncing logs from remote')
-    LocalMachine.run_command(LOG_SYNC_CMD)
+    log_sync_cmd = [
+        'rsync',
+        '-ra',
+        f'{remote_machine}:{REMOTE_LOG_DIR}',
+        f'{LOCAL_LOG_DIR}/..'
+    ]
+    LocalMachine.run_command(log_sync_cmd)
 
 
 def maybe_sync_workspace(sync):
@@ -318,15 +354,15 @@ def get_last_modified_time():
 
 class Config:
     def __init__(self):
-        self.target_base = ''
-        self.target_file = ''
-        self.test = ''
-        self.cp = ''
-        self.sync = True
-        self.log_sync = True
-        self.dev = ''
-        self.remote_machine = ''
-        self.polaris_sid = ''
+        self.target_base: str = ''
+        self.target_file: str = ''
+        self.test: str = ''
+        self.cp: str = ''
+        self.sync: bool = True
+        self.log_sync: bool = True
+        self.dev: str = ''
+        self.remote_machine: str = ''
+        self.polaris_sid: str = ''
 
 
 class Cache:
@@ -414,7 +450,7 @@ class IsengardShell(Cmd, Cache):
         self.save(self.config)
 
     def reload_cache(self):
-        self.config = self.reload() or Config()
+        self.config: Config = self.reload() or Config()
 
     def check_for_reload(self, line: str):
         logging.info('Checking for reload')
@@ -445,10 +481,21 @@ class IsengardShell(Cmd, Cache):
             if not self.test else self.test
         )
         return (
-            '\r\n'
+            '\n-------| Test Controls |---------\n'
             f'Current target: {self.target}\n'
             f'          test: {test}\n'
-            f'            cp: {self.cp}\r\n'
+            f'            cp: {self.cp}\n'
+
+        )
+
+    def __get_resource_prompt(self):
+        """Get resource prompt"""
+        self.is_not_used()
+        return (
+            '\n-------| Resource Controls |---------\n'
+            f'           dev: {self.dev}\n'
+            f'remote machine: {self.remote_machine}\n'
+            f'   polaris sid: {self.polaris_sid}\n'
         )
 
     def __get_sync_prompt(self):
@@ -466,7 +513,8 @@ class IsengardShell(Cmd, Cache):
         ) + f"{bcolors.ENDC}"
 
         return (
-            f'    wk syncing: {sync_text}\n'
+            '\n-------| Sync Controls |---------\n'
+            f'   wks syncing: {sync_text}\n'
             f'   log syncing: {log_sync_text}\n'
         )
 
@@ -480,10 +528,12 @@ class IsengardShell(Cmd, Cache):
         test_prompt = self.__get_test_prompt()
         sync_prompt = self.__get_sync_prompt()
         self.prompt = (
-            '\n---------------------------------\n'
-            f'{test_prompt}'
+            '\n'
+            f'{self.__get_resource_prompt()}'
             f'\n'
             f'{sync_prompt}'
+            f'\n'
+            f'{test_prompt}'
             f'\n'
             f'{bcolors.OKBLUE}{bcolors.UNDERLINE}isengard>{bcolors.ENDC} '
         )
@@ -529,11 +579,27 @@ class IsengardShell(Cmd, Cache):
         self.config.cp = args
         self.save_cache_and_set_prompt()
 
+    def do_set_dev(self, args):
+        """Set a dev."""
+        self.config.dev = args
+        self.save_cache_and_set_prompt()
+
+    def do_set_remote_machine(self, args):
+        """Set a remote machine."""
+        self.config.remote_machine = args
+        self.save_cache_and_set_prompt()
+
+    def do_set_polaris_sid(self, args):
+        """Set a polaris sid."""
+        self.config.polaris_sid = args
+        self.save_cache_and_set_prompt()
+
     def do_delete_brikmock_images(self, _args):
         """Delete all brikmock images"""
         self.is_not_used()
         logging.info('Deleting all brikmock images')
-        DevMachine.run_command(DELETE_BRIKMOCK_DOCKER_IMAGES)
+        DevMachine.run_command(self.remote_machine,
+                               DELETE_BRIKMOCK_DOCKER_IMAGES)
 
     def do_run_brikmock_test(self, args):
         """Test run"""
@@ -543,19 +609,35 @@ class IsengardShell(Cmd, Cache):
             brikmock_image = args
         else:
             brikmock_image = DevMachine.run_command(
-                GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[
-                             :-2]
+                self.remote_machine,
+                GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD,
+                capture_output=True
+            )[:-2]
 
-        TestRunner.run_brikmock_test(self.target, self.test, self.cp,
-                                     brikmock_image)
-        maybe_sync_logs(self.log_sync)
+        TestRunner.run_brikmock_test(
+            remote_machine=self.remote_machine,
+            polaris_sid=self.polaris_sid,
+            dev=self.dev,
+            target=self.target,
+            test=self.test,
+            cp=self.cp,
+            brikmock_image=brikmock_image
+        )
+        maybe_sync_logs(self.log_sync, self.remote_machine)
 
-    def do_run_brikmock_test_without_image_id(self, args):
+    def do_run_brikmock_test_without_image_id(self, _):
         """Test run with no image id, this will fetch image from docker repo."""
         self.is_not_used()
         maybe_sync_workspace(self.sync)
-        TestRunner.run_brikmock_test(self.target, self.test, self.cp)
-        maybe_sync_logs(self.log_sync)
+        TestRunner.run_brikmock_test(
+            remote_machine=self.remote_machine,
+            polaris_sid=self.polaris_sid,
+            dev=self.dev,
+            target=self.target,
+            test=self.test,
+            cp=self.cp,
+        )
+        maybe_sync_logs(self.log_sync, self.remote_machine)
 
     def do_show_brikmock_command(self, args):
         """"""
@@ -564,17 +646,33 @@ class IsengardShell(Cmd, Cache):
             brikmock_image = args
         else:
             brikmock_image = DevMachine.run_command(
-                GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[
-                             :-2]
+                remote_machine=self.remote_machine,
+                command=GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD,
+                capture_output=True
+            )[:-2]
 
-        command = TestRunner.get_cmd_run_test(self.target, self.test, brikmock_image, self.cp)
+        command = TestRunner.get_cmd_run_test(
+            target=self.target,
+            test=self.test,
+            polaris_sid=self.polaris_sid,
+            dev=self.dev,
+            brikmock_image=brikmock_image,
+            cp=self.cp,
+            real=False
+        )
         logging.info(f'Shreyash {command}')
 
     def do_run_test(self, _args):
         """Test real"""
         maybe_sync_workspace(self.sync)
-        command = TestRunner.run_test(self.target, self.test)
-        maybe_sync_logs(self.log_sync)
+        TestRunner.run_test(
+            remote_machine=self.remote_machine,
+            polaris_sid=self.polaris_sid,
+            dev=self.dev,
+            target=self.target,
+            test=self.test
+        )
+        maybe_sync_logs(self.log_sync, self.remote_machine)
 
     def do_sync_workspace(self, _args):
         """Sync local workspace to remote"""
@@ -583,7 +681,7 @@ class IsengardShell(Cmd, Cache):
 
     def do_sync_logs(self, _args):
         """Sync logs from remote"""
-        maybe_sync_logs(self.log_sync)
+        maybe_sync_logs(self.log_sync, self.remote_machine)
 
     def do_open_logs(self, _args):
         """Opens the latest logs in new terminal"""
@@ -594,7 +692,9 @@ class IsengardShell(Cmd, Cache):
         """Generate intellij deps."""
         maybe_sync_workspace(self.sync)
         logging.info('Generate Intellij Deps')
-        DevMachine.run_command_on_sd_dev_box(REMOTE_GEN_DEPS_CMD)
+        DevMachine.run_command_on_sd_dev_box(
+            remote_machine=self.remote_machine,
+            command=REMOTE_GEN_DEPS_CMD)
         pull_workspace()
 
     def do_make_brikmock3_sdk_internal(self, _args):
@@ -602,27 +702,37 @@ class IsengardShell(Cmd, Cache):
         """
         maybe_sync_workspace(self.sync)
         DevMachine.run_command_on_sd_dev_box(
-            'cd '
-            'polaris/src/rubrik/sdk_internal/brikmock3'
-            ' && sudo make')
+            remote_machine=self.remote_machine,
+            command=(
+                'cd '
+                'polaris/src/rubrik/sdk_internal/brikmock3'
+                ' && sudo make'
+            )
+        )
         pull_workspace()
 
     def do_build_image(self, _args):
         """Build custom brikmock docker."""
         maybe_sync_workspace(self.sync)
         logging.info('Building custom brikmock image.')
-        DevMachine.run_command_on_sd_dev_box(BUILD_BRIKMOCK_IMAGE_CMD)
+        DevMachine.run_command_on_sd_dev_box(
+            remote_machine=self.remote_machine,
+            command=BUILD_BRIKMOCK_IMAGE_CMD
+        )
 
     def do_start_brikmock(self, _args):
         """"""
         logging.info('Starting brikmock container on latest build')
         image_id = DevMachine.run_command(
-            GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[:-2]
+            remote_machine=self.remote_machine,
+            command=GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD,
+            capture_output=True
+        )[:-2]
         logging.info(f'Brikmock image id: {image_id}')
         command = [
             'ssh',
             '-t',
-            f'{REMOTE_MACHINE}',
+            f'{self.remote_machine}',
             f'docker run -p 443:443 -p 9999:9999 --name brikmock -d {image_id}'
         ]
         LocalMachine.run_command(command)
@@ -632,7 +742,10 @@ class IsengardShell(Cmd, Cache):
         """Stop all brikmock containers"""
         self.is_not_used()
         logging.info('Stopping docker container')
-        DevMachine.run_command(STOP_BRIKMOCK_CONTAINER_CMD)
+        DevMachine.run_command(
+            remote_machine=self.remote_machine,
+            command=STOP_BRIKMOCK_CONTAINER_CMD
+        )
 
     def do_get_brikmock(self, _args):
         """
@@ -640,8 +753,10 @@ class IsengardShell(Cmd, Cache):
         """
         self.is_not_used()
         logging.info('Getting docker container')
-        stdout = DevMachine.run_command(GET_BRIKMOCK_CONTAINER_CMD,
-                                          capture_output=True)
+        stdout = DevMachine.run_command(
+            remote_machine=self.remote_machine,
+            command=GET_BRIKMOCK_CONTAINER_CMD,
+            capture_output=True)
 
         try:
             a = re.findall('0.0.0.0:[0-9]+->443', stdout)[0].split('->')[
@@ -650,8 +765,8 @@ class IsengardShell(Cmd, Cache):
                 0].split(':')[1]
             c = stdout.split()[0]
             logging.info(f'Container {c}, port: {a}, grpc port: {b}')
-        except Exception as e:
-            logging.error(f'Error finding port. Result: {stdout}')
+        except Exception as e:  # pylint: disable=broad-except
+            logging.error(f'Error {e} finding port. Result: {stdout}')
 
     def do_reload(self, _):
         """Reloads current module"""
@@ -664,8 +779,10 @@ class IsengardShell(Cmd, Cache):
         prune."""
         self.is_not_used()
         logging.info('Running docker system prune inside dev vm.')
-        stdout = DevMachine.run_command_on_sd_dev_box(
-            DOCKER_SYS_PRUNE_CMD, capture_output=True)
+        DevMachine.run_command_on_sd_dev_box(
+            remote_machine=self.remote_machine,
+            command=DOCKER_SYS_PRUNE_CMD
+        )
 
     def do_exit(self, _):
         """Exit"""
@@ -678,24 +795,27 @@ class IsengardShell(Cmd, Cache):
         self.is_not_used()
         logging.info('Invoked dummy command')
         brikmock_image = DevMachine.run_command(
-            GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD, capture_output=True)[:-2]
+            remote_machine=self.remote_machine,
+            command=GET_BRIKMOCK_DOCKER_LATEST_IMAGE_ID_CMD,
+            capture_output=True
+        )[:-2]
         print('Hello: %s' % brikmock_image)
 
     def do_ssh_ubvm(self, _):
         """SSH to UBVM"""
         self.is_not_used()
-        LocalMachine.run_command(['ssh', f'{REMOTE_MACHINE}'])
+        LocalMachine.run_command(['ssh', f'{self.remote_machine}'])
 
     def do_set_brikmock_id(self, _):
         """Set brikmock id to run test with"""
         pass
 
-    def do_cli(self, args):
+    def do_cli(self, _):
         """Open local cli"""
         self.is_not_used()
         LocalMachine.run_command(['bash'])
 
-    def do_orders(self, args):
+    def do_orders(self, _):
         """Open local cli"""
         self.is_not_used()
         LocalMachine.run_command(['orders'])
