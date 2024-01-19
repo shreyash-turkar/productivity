@@ -18,12 +18,16 @@ if __name__ == '__main__':
         isengard = ProjectIsengard.IsengardShell(cache_file)
         print(line_before_reload)
         if line_before_reload:
-            isengard.reload_cache()
+            isengard.preloop()
             isengard.onecmd(line_before_reload)
         try:
             isengard.cmdloop()
         except ProjectIsengard.ReloadException as e:
+            isengard.postloop()
             line_before_reload = str(e)
             reload(ProjectIsengard)
             continue
+        except Exception:
+            isengard.postloop()
+            raise
         sys.exit(0)
