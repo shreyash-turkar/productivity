@@ -24,6 +24,9 @@ close_order ()
     bodega close order $@
 }
 
+ipv4 () {
+	consume $@ | grep ipv4
+}
 
 # Bodega Orders
 order_cdm ()
@@ -89,34 +92,24 @@ details() {
 
 provision_polaris ()
 {
-    account='temp02' \
+    account=$2 \
     &&
-    echo "Running sp-account-create -a $account -d $@" \
+    echo "Running sp-account-create -a $account -d $1" \
     &&
-    sp-account-create -a $account -d $@ \
+    sp-account-create -a $account -d $1 \
     &&
-    echo "Running: sp-user-create -a $account -u admin -p b8bkPrhVVxyY7Jg -d $@" \
+    echo "Running: sp-user-create -a $account -u bodega-test-user@rubrik.com -p 'B0dega!@34' -d $1" \
     &&
-    sp-user-create -a $account -u shreyash.turkar@rubrik.com -p admin -d $@ \
+    sp-user-create -a $account -u bodega-test-user@rubrik.com -p 'B0dega!@34' -d $1 \
     &&
-    echo "sp-account-ui -a $account -d $@" \
+    echo "sp-account-ui -a $account -d $1" \
     &&
-    sp-account-ui -a $account -d $@ \
+    sp-account-ui -a $account -d $1 \
     &&
-    sp-account-tag add -d $@ -t ActiveDirectoryEnabled \
+    sp-account-tag add -d $1 -t ActiveDirectoryEnabled \
                                 RDPCustomer \
                                 UiActiveDirectoryEnabled \
-                                FilesetInventory \
-                                # HypervEnabled \
-                                # HyperVHierarchyEnabled \
-                                # HyperVInventoryViewEnabled \
-                                GlobalSLAForCDMSnappablesEnabled \
-                                RBACForGlobalSLA \
-                                NasFeatureEnablement \
-                                NasInventoryEnabled \
-                                NasInventoryGAEnabled \
                                 NutanixEnabled \
-                                TprEnabled \
                     -a $account
 }
 
@@ -171,3 +164,15 @@ gls ()
 }
 
 export rklog=$SDMAIN/tools/logging/rklog.py
+export DISABLE_DEV_VAULT=1
+set -o vi
+
+
+# Temporary scripts
+pull () {
+    rsync -rPz --exclude=*.pem cdm:/opt/rubrik/src/scripts/support ~/workspace/sdmain/src/scripts/
+}
+
+send () {
+    rsync -rPz --exclude=*.pem  ~/workspace/sdmain/src/scripts/support/active_directory cdm:/opt/rubrik/src/scripts/support/test1
+}
